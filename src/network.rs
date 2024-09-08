@@ -102,7 +102,6 @@ pub fn handle_p2p_events(
                                 ..Default::default()
                             },
                         );
-                        // TODO: restore panic
                         error!(
                             "Desync detected on frame {} local {} remote {}@{:?}",
                             frame, local_checksum, remote_checksum, addr
