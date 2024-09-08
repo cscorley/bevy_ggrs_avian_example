@@ -51,7 +51,7 @@ pub fn update_matchbox_socket(
         // in between rollbacks and that can lead to more inaccuracies building
         // up over time.
         .with_sparse_saving_mode(false)
-        .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 1 });
+        .with_desync_detection_mode(bevy_ggrs::ggrs::DesyncDetection::On { interval: 1 });
 
     // add players
     let players = socket.players();
@@ -77,7 +77,10 @@ pub fn update_matchbox_socket(
     commands.insert_resource(Session::P2P(session));
 }
 
-pub fn handle_p2p_events(session: Option<ResMut<Session<ExampleGgrsConfig>>>) {
+pub fn handle_p2p_events(
+    session: Option<ResMut<Session<ExampleGgrsConfig>>>,
+    mut gizmos: ResMut<GizmoConfigStore>,
+) {
     if let Some(mut session) = session {
         if let Session::P2P(session) = session.as_mut() {
             for event in session.events() {
@@ -92,7 +95,14 @@ pub fn handle_p2p_events(session: Option<ResMut<Session<ExampleGgrsConfig>>>) {
                         remote_checksum,
                         addr,
                     } => {
-                        panic!(
+                        gizmos.insert(
+                            GizmoConfig::default(),
+                            PhysicsGizmos {
+                                collider_color: Some(Color::linear_rgb(1., 0., 0.)),
+                                ..Default::default()
+                            },
+                        );
+                        error!(
                             "Desync detected on frame {} local {} remote {}@{:?}",
                             frame, local_checksum, remote_checksum, addr
                         );

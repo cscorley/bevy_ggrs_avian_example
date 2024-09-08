@@ -32,15 +32,17 @@ pub fn input(
     local_players: Res<LocalPlayers>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut random: ResMut<RandomInput>,
-    physics_enabled: Res<PhysicsEnabled>,
+    time: Res<Time<Physics>>,
 ) {
     let mut local_inputs = HashMap::new();
+
+    random.on = false;
 
     for handle in &local_players.0 {
         let mut input: u16 = 0;
 
         // Do not do anything until physics are live
-        if physics_enabled.0 {
+        if !time.is_paused() {
             // Build the input
             if keyboard_input.pressed(KeyCode::KeyW) {
                 input |= INPUT_UP;
@@ -79,9 +81,9 @@ pub fn input(
 }
 
 pub fn apply_inputs(
-    mut query: Query<(&mut Velocity, &Player)>,
+    mut query: Query<(&mut LinearVelocity, &Player)>,
     inputs: Res<PlayerInputs<ExampleGgrsConfig>>,
-    physics_enabled: Res<PhysicsEnabled>,
+    time: Res<Time<Physics>>,
 ) {
     for (mut v, p) in query.iter_mut() {
         let (game_input, input_status) = inputs[p.handle];
@@ -98,7 +100,7 @@ pub fn apply_inputs(
 
         // Do not do anything until physics are live
         // This is a poor mans emulation to stop accidentally tripping velocity updates
-        if !physics_enabled.0 {
+        if time.is_paused() {
             continue;
         }
 
@@ -128,34 +130,21 @@ pub fn apply_inputs(
             0.
         };
 
+        // For some reason, if you wanted to zero out a velocity and it happens
+        // that the two players are in contact, it will cause a desync in Avian
         let new_vel_x = if horizontal != 0. {
-            v.linvel.x + horizontal * 10.0
+            v.x + horizontal * 10.0
         } else {
-            0.
+            v.x
         };
 
         let new_vel_y = if vertical != 0. {
-            v.linvel.y + vertical * 10.0
+            v.y + vertical * 10.0
         } else {
-            0.
+            v.y
         };
 
-        // This is annoying but we have to make sure we only trigger an update in Rapier when explicitly necessary!
-        if new_vel_x != v.linvel.x || new_vel_y != v.linvel.y {
-            v.linvel.x = new_vel_x;
-            v.linvel.y = new_vel_y;
-        }
-    }
-}
-
-pub fn force_update_rollbackables(
-    mut t_query: Query<&mut Transform, With<Rollback>>,
-    mut v_query: Query<&mut Velocity, With<Rollback>>,
-) {
-    for mut t in t_query.iter_mut() {
-        t.set_changed();
-    }
-    for mut v in v_query.iter_mut() {
-        v.set_changed();
+        v.x = new_vel_x;
+        v.y = new_vel_y;
     }
 }

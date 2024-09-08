@@ -7,15 +7,15 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug executable 'bevy_ggrs_rapier_example'",
+      "name": "Debug executable 'bevy_ggrs_avian_example'",
       "cargo": {
         "args": [
           "build",
-          "--bin=bevy_ggrs_rapier_example",
-          "--package=bevy_ggrs_rapier_example"
+          "--bin=bevy_ggrs_avian_example",
+          "--package=bevy_ggrs_avian_example"
         ],
         "filter": {
-          "name": "bevy_ggrs_rapier_example",
+          "name": "bevy_ggrs_avian_example",
           "kind": "bin"
         }
       },
@@ -29,16 +29,16 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in executable 'bevy_ggrs_rapier_example'",
+      "name": "Debug unit tests in executable 'bevy_ggrs_avian_example'",
       "cargo": {
         "args": [
           "test",
           "--no-run",
-          "--bin=bevy_ggrs_rapier_example",
-          "--package=bevy_ggrs_rapier_example"
+          "--bin=bevy_ggrs_avian_example",
+          "--package=bevy_ggrs_avian_example"
         ],
         "filter": {
-          "name": "bevy_ggrs_rapier_example",
+          "name": "bevy_ggrs_avian_example",
           "kind": "bin"
         }
       },
