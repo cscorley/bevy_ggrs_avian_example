@@ -99,23 +99,61 @@ fn main() {
     app.add_plugins(GgrsPlugin::<ExampleGgrsConfig>::default())
         .set_rollback_schedule_fps(FPS)
         .add_systems(bevy_ggrs::ReadInputs, input)
-        // We must add a specific checksum check for everything we want to include in desync detection.
-        // You are welcome to checksum more than this, but I feel just checking the Avian Position is enough.
-        .checksum_component::<Position>(|t| {
-            let mut bytes: Vec<u8> = Vec::new();
-            bytes.extend(t.x.to_ne_bytes());
-            bytes.extend(t.y.to_ne_bytes());
-            fletcher16(&bytes) as u64
-        })
-        // https://github.com/Jondolf/avian/issues/478
-        //.rollback_component_with_copy::<GlobalTransform>()
-        //.rollback_component_with_copy::<Transform>()
+        // Rollback for our physics toggle logic
+        .rollback_resource_with_reflect::<EnablePhysicsAfter>()
+        // Rollback components and resources that Avian relies on.
+        // An outline of this can be found here: https://github.com/Jondolf/avian/issues/478
         .rollback_component_with_copy::<LinearVelocity>()
         .rollback_component_with_copy::<AngularVelocity>()
-        // automatic
+        .rollback_component_with_copy::<Position>()
+        .rollback_component_with_copy::<Rotation>()
+        .rollback_component_with_copy::<Sleeping>()
+        .rollback_component_with_copy::<TimeSleeping>()
+        .rollback_resource_with_clone::<Collisions>()
+        // For desync detection, we need to send the other players a checksum of
+        // our game state.  Thus, we must add a specific checksum check for
+        // everything we want to include in desync detection.  You are welcome
+        // to checksum more than this, but I feel just checking the Avian
+        // Position is enough.  I've added Rotation just to show an example.
+        .checksum_component::<Position>(|position| {
+            let mut bytes: Vec<u8> = Vec::new();
+            bytes.extend(position.x.to_ne_bytes());
+            bytes.extend(position.y.to_ne_bytes());
+            fletcher16(&bytes) as u64
+        })
+        .checksum_component::<Rotation>(|rotation| {
+            let mut bytes: Vec<u8> = Vec::new();
+            bytes.extend(rotation.sin.to_ne_bytes());
+            bytes.extend(rotation.cos.to_ne_bytes());
+            fletcher16(&bytes) as u64
+        })
+        //.rollback_component_with_copy::<GlobalTransform>()
+        //.rollback_component_with_copy::<Transform>()
+        // Originally, when debugging desync with Avian, I was suspect that
+        // perhaps the times were cause of this.  However, it seems to work fine
+        // without.  GGRS has a GgrsTime that these are informed by, and that is
+        // already cloned and rolled back by the plugin.  I don't know if these
+        // are strictly necessary to rollback anymore, but please open a PR and
+        // add them if you find when they are needed!
+        //.rollback_resource_with_copy::<Time<Physics>>()
+        //.rollback_resource_with_copy::<Time<Substeps>>()
+        // I have left (commented out) lines which include every component that
+        // is possible to rollback.  Keep in mind that for components, GGRS only
+        // rolls back these components if the Entity was spawned with the
+        // add_rollback extension!
+        // You may need to uncomment more if you use/change any of these in your game.
         //.rollback_component_with_clone::<Collider>()
-        .rollback_component_with_clone::<CollidingEntities>()
+        //.rollback_component_with_clone::<ColliderConstructor>()
+        //.rollback_component_with_clone::<ColliderConstructorHierarchy>()
+        //.rollback_component_with_clone::<CollidingEntities>()
+        //.rollback_component_with_clone::<RayCaster>()
+        //.rollback_component_with_clone::<RayHits>()
+        //.rollback_component_with_clone::<Sensor>()
+        //.rollback_component_with_clone::<ShapeCaster>()
+        //.rollback_component_with_clone::<ShapeHits>()
+        //.rollback_component_with_clone::<broad_phase::AabbIntersections>()
         //.rollback_component_with_copy::<AccumulatedTranslation>()
+        //.rollback_component_with_copy::<AngularDamping>()
         //.rollback_component_with_copy::<CenterOfMass>()
         //.rollback_component_with_copy::<ColliderAabb>()
         //.rollback_component_with_copy::<ColliderDensity>()
@@ -123,71 +161,46 @@ fn main() {
         //.rollback_component_with_copy::<ColliderMassProperties>()
         //.rollback_component_with_copy::<ColliderParent>()
         //.rollback_component_with_copy::<ColliderTransform>()
-        .rollback_component_with_copy::<ExternalAngularImpulse>()
-        .rollback_component_with_copy::<ExternalForce>()
-        .rollback_component_with_copy::<ExternalImpulse>()
-        .rollback_component_with_copy::<ExternalTorque>()
-        //.rollback_component_with_copy::<Friction>()
-        //.rollback_component_with_copy::<Inertia>()
-        //.rollback_component_with_copy::<InverseInertia>()
-        //.rollback_component_with_copy::<InverseMass>()
-        //.rollback_component_with_copy::<LockedAxes>()
-        //.rollback_component_with_copy::<Mass>()
-        .rollback_component_with_copy::<Position>()
-        //.rollback_component_with_copy::<Restitution>()
-        //.rollback_component_with_copy::<RigidBody>()
-        .rollback_component_with_copy::<Rotation>()
-        .rollback_component_with_copy::<Sleeping>()
-        .rollback_component_with_copy::<SleepingDisabled>()
-        .rollback_component_with_copy::<TimeSleeping>()
-        //.rollback_component_with_copy::<avian2d::position::PreSolveAccumulatedTranslation>()
-        //.rollback_component_with_copy::<avian2d::position::PreviousRotation>()
-        //.rollback_component_with_copy::<avian2d::sync::PreviousGlobalTransform>()
-        //.rollback_component_with_copy::<PreSolveAngularVelocity>() // pub(crate)
-        //.rollback_component_with_copy::<PreSolveLinearVelocity>() // pub(crate)
-        //.rollback_component_with_copy::<PreviousColliderTransform>() // pub(crate)
-        // TODO: not sure if rolling these back are necessary
-        //.rollback_resource_with_copy::<Time<()>>()
-        //.rollback_resource_with_copy::<Time<Fixed>>()
-        .rollback_resource_with_copy::<Time<Physics>>() // GgrsTime is cloned
-        //.rollback_resource_with_copy::<Time<Real>>()
-        .rollback_resource_with_copy::<Time<Substeps>>()
-        //.rollback_resource_with_copy::<Time<Virtual>>()
-        //.rollback_component_with_copy::<SphericalJoint>() // 3d
-        //.rollback_component_with_clone::<ColliderConstructor>()
-        //.rollback_component_with_clone::<ColliderConstructorHierarchy>()
-        //.rollback_component_with_clone::<RayCaster>()
-        //.rollback_component_with_clone::<RayHits>()
-        //.rollback_component_with_clone::<Sensor>()
-        //.rollback_component_with_clone::<ShapeCaster>()
-        //.rollback_component_with_clone::<ShapeHits>()
-        .rollback_component_with_clone::<broad_phase::AabbIntersections>()
-        //.rollback_component_with_copy::<AngularDamping>()
         //.rollback_component_with_copy::<CollisionLayers>()
         //.rollback_component_with_copy::<CollisionMargin>()
         //.rollback_component_with_copy::<DebugRender>()
         //.rollback_component_with_copy::<DistanceJoint>()
         //.rollback_component_with_copy::<Dominance>()
+        //.rollback_component_with_copy::<ExternalAngularImpulse>()
+        //.rollback_component_with_copy::<ExternalForce>()
+        //.rollback_component_with_copy::<ExternalImpulse>()
+        //.rollback_component_with_copy::<ExternalTorque>()
         //.rollback_component_with_copy::<FixedJoint>()
+        //.rollback_component_with_copy::<Friction>()
         //.rollback_component_with_copy::<GravityScale>()
+        //.rollback_component_with_copy::<Inertia>()
+        //.rollback_component_with_copy::<InverseInertia>()
+        //.rollback_component_with_copy::<InverseMass>()
         //.rollback_component_with_copy::<LinearDamping>()
+        //.rollback_component_with_copy::<LockedAxes>()
+        //.rollback_component_with_copy::<Mass>()
         //.rollback_component_with_copy::<PrismaticJoint>()
+        //.rollback_component_with_copy::<Restitution>()
         //.rollback_component_with_copy::<RevoluteJoint>()
+        //.rollback_component_with_copy::<RigidBody>()
+        //.rollback_component_with_copy::<SleepingDisabled>()
         //.rollback_component_with_copy::<SpeculativeMargin>()
+        //.rollback_component_with_copy::<SphericalJoint>() // 3d
         //.rollback_component_with_copy::<SweptCcd>()
+        //.rollback_component_with_copy::<avian2d::position::PreSolveAccumulatedTranslation>()
+        //.rollback_component_with_copy::<avian2d::position::PreviousRotation>()
+        //.rollback_component_with_copy::<avian2d::sync::PreviousGlobalTransform>()
         //.rollback_component_with_copy::<avian2d::sync::ancestor_marker::AncestorMarker<ColliderMarker>>()
         //.rollback_component_with_copy::<avian2d::sync::ancestor_marker::AncestorMarker<RigidBody>>()
         //.rollback_resource_with_clone::<NarrowPhaseConfig>()
         //.rollback_resource_with_clone::<avian2d::sync::SyncConfig>()
         //.rollback_resource_with_clone::<dynamics::solver::SolverConfig>()
-        .rollback_resource_with_clone::<Collisions>()
         //.rollback_resource_with_copy::<DeactivationTime>()
         //.rollback_resource_with_copy::<SleepingThreshold>()
         //.rollback_resource_with_copy::<SubstepCount>()
         //.rollback_resource_with_reflect::<BroadCollisionPairs>()
         //.rollback_resource_with_reflect::<Gravity>()
-        // Game stuff
-        .rollback_resource_with_reflect::<EnablePhysicsAfter>();
+        ;
 
     // We need to add a bunch of systems into the GGRSSchedule.
     // Remove ambiguity detection, avian is in conflict with the GGRS default
@@ -196,30 +209,46 @@ fn main() {
         .set_build_settings(ScheduleBuildSettings::default());
 
     app.add_plugins(PhysicsPlugins::new(bevy_ggrs::GgrsSchedule));
+
+    // Systems that we want to run before the physics engine.
+    //
     app.add_systems(
         bevy_ggrs::GgrsSchedule,
         (
-            copy_time,
+            // Logging out some helpful debug info about our frames
             log_start_frame,
-            update_current_session_frame,
             log_confirmed_frame,
-            // the three above must actually come before we update rollback status
+            // This update rollback status isn't strictly necessary for anything
+            // anymore (it was used with Rapier to simplify rollback logic), but
+            // it was just such a useful utility I have left it in.  Depends on
+            // update_current_session_frame coming first.
+            update_current_session_frame,
             update_rollback_status,
-            // these three must actually come after we update rollback status
-            force_update_rollbackables,
+            // Toggle our physics based on desired state determined in the previous frame,
+            // or whatever the rollback state tells us it should currently be.
             toggle_physics,
+            // Take player inputs and modify things for the physics engine to react to.
+            // It ~should~ be fine to put this after the physics engine, I just
+            // sleep better with inputs aren't 1 frame delayed.
             apply_inputs,
             apply_deferred,
         )
             .chain()
             .before(PhysicsSet::Prepare),
     );
+
+    // Systems that operate as a result of the physics system, or setting up for
+    // the next frame.  For example, pausing the physics engine because of some
+    // game state to show another screen to players.  In this demo, we're just
+    // simply pausing every 10 seconds.
     app.add_systems(
         bevy_ggrs::GgrsSchedule,
         (
+            // Pause our physics engine every 10 seconds
             pause_physics_test,
+            // Log that our systems are done
             log_end_frame,
-            apply_deferred, // Flushing again
+            apply_deferred,
         )
             .chain()
             .after(PhysicsSet::Sync),
@@ -237,12 +266,10 @@ fn main() {
     // not to resimulation, since we're basically taking up time that GGRS
     // would use already to pace itself.
     // You may find this useless, or bad.  Submit a PR if it is!
-    /*
     app.add_plugins(FramepacePlugin)
         .insert_resource(FramepaceSettings {
             limiter: Limiter::from_framerate(FPS as f64),
         });
-    */
     app.run();
 }
 
@@ -272,39 +299,4 @@ pub fn fletcher16(data: &[u8]) -> u16 {
     }
 
     (sum2 << 8) | sum1
-}
-
-pub fn copy_time(ggrs_time: Res<Time<GgrsTime>>, mut physics_time: ResMut<Time<Physics>>) {
-    /*
-       *physics_time = Time::new_with(Physics::default());
-       physics_time.advance_to(ggrs_time.elapsed() - ggrs_time.delta());
-       physics_time.advance_by(ggrs_time.delta());
-    */
-
-    log::info!("ggrs time {:?}", ggrs_time);
-    log::info!("phys time {:?}", physics_time);
-}
-
-pub fn force_update_rollbackables(
-    mut av_query: Query<&mut AngularVelocity, With<Rollback>>,
-    mut lv_query: Query<&mut LinearVelocity, With<Rollback>>,
-    mut p_query: Query<&mut Position, With<Rollback>>,
-    mut r_query: Query<&mut Rotation, With<Rollback>>,
-    mut ce_query: Query<&mut CollidingEntities, With<Rollback>>,
-) {
-    for mut c in av_query.iter_mut() {
-        c.set_changed();
-    }
-    for mut c in lv_query.iter_mut() {
-        c.set_changed();
-    }
-    for mut c in p_query.iter_mut() {
-        c.set_changed();
-    }
-    for mut c in r_query.iter_mut() {
-        c.set_changed();
-    }
-    for mut c in ce_query.iter_mut() {
-        c.set_changed();
-    }
 }
