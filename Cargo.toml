@@ -34,28 +34,27 @@ web = ["bevy_ggrs/wasm-bindgen"]
 
 [dependencies]
 # Prefer listing the exact bevy and bevy-adjacent versions here for clarity of what worked
-# avian2d = { git = "https://github.com/Jondolf/avian", branch = "main", features = [ "enhanced-determinism", ] }
 
-avian2d = { path = "../avian/crates/avian2d", default-features = false, features = [
-    # avian2d = { git = "https://github.com/Jondolf/avian", branch = "main", default-features = false, features = [
+# The main branch has bug fixes for determinism we require https://github.com/Jondolf/avian/pull/480
+# avian2d = { version = "0.1.2", default-features = false, features = [
+# avian2d = { path = "../avian/crates/avian2d", default-features = false, features = [
+avian2d = { git = "https://github.com/Jondolf/avian", branch = "main", default-features = false, features = [
     "2d",
     "f32",
     "parry-f32",
     "debug-plugin",
-    "enhanced-determinism",
+    "enhanced-determinism", # Also enables libm in glam dependency for https://github.com/cscorley/bevy_ggrs_rapier_example/issues/22
 ] }
-# avian2d = { version = "0.1.2", features = ["debug-plugin", "enhanced-determinism"] } # TODO: serialize perhaps?
+
 bevy = "0.14.2"
-# Enable libm in glam dependency for https://github.com/cscorley/bevy_ggrs_rapier_example/issues/22
-# Looks like avian does this for us already, nice!
-# bevy_math = { version = "0.14.2", features = ["libm"] }
-bevy-inspector-egui = "0.25.2"
+# Disable the egui extension features so everything works in WASM easily
+bevy-inspector-egui = { version = "0.25.2", default-features = false, features = [
+    "bevy_render",
+] }
 bevy_framepace = "0.17.1"
 bevy_ggrs = "0.16.0"
-# bevy_ggrs = { path = "../bevy_ggrs" }
 bevy_matchbox = { version = "0.10.0", features = ["ggrs"] }
 bytemuck = { version = "1.18.0", features = ["derive"] }
-#ggrs = { version = "0.10.2", features = ["sync-send"] }
 log = "0.4.22"
 rand = "0.8.5"
 tracing-subscriber = { version = "0.3.18", features = [
