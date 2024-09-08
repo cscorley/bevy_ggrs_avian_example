@@ -1,5 +1,5 @@
 {
-  description = "Bevy GGRS Rapier Example";
+  description = "Bevy GGRS Avian Example";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/24.05";

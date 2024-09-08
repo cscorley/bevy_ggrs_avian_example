@@ -1,7 +1,10 @@
-# Bevy GGRS Rapier example
+# Bevy GGRS <s>Rapier</s> Avian example
 
-This is my quest to get GGRS and Rapier to work together in the Bevy engine,
+This is my quest to get GGRS and Avian to work together in the Bevy engine,
 using the plugins.
+
+Check out the original built on Rapier:
+https://github.com/cscorley/bevy_ggrs_rapier_example
 
 Is it perfect? No. But is well-written? Also no.
 
@@ -11,7 +14,8 @@ going.
 Things I have going
 
 - Deterministic physics and rollbacks (allegedly)
-- Desync detection (1v1 only)
+- Desync detection (via GGRS plugin)
+- Simulating pausing between rounds (every 10 seconds)
 - Plenty poorly strung-together comments
 - And a whole lot of debug learning
 

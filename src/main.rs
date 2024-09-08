@@ -5,7 +5,6 @@ mod network;
 mod physics;
 mod random_movement;
 mod rollback;
-mod spawn;
 mod startup;
 
 // A prelude to simplify other file imports
@@ -17,7 +16,6 @@ mod prelude {
     pub use crate::physics::*;
     pub use crate::random_movement::*;
     pub use crate::rollback::*;
-    pub use crate::spawn::*;
     pub use crate::startup::*;
     pub use avian2d::prelude::*;
     pub use bevy::log::*;
@@ -47,17 +45,16 @@ mod prelude {
     // They host this match making service for us to use FOR FREE.
     // It has been an incredibly useful thing I don't have to think about while working
     // and learning how to implement this stuff and I guarantee it will be for you too.
-    // pub const MATCHBOX_ADDR: &str = "wss://match.gschup.dev/bevy-ggrs-rapier-example?next=2";
+    // pub const MATCHBOX_ADDR: &str = "wss://match.gschup.dev/bevy-ggrs-avian-example?next=2";
     // Unfortunately, this matchbox is too out of date to work with the latest plugin.
 
     // So, use Johan's compatible matchbox.
     // Check out their work on "Cargo Space", especially the blog posts, which are incredibly enlightening!
     // https://johanhelsing.studio/cargospace
-    pub const MATCHBOX_ADDR: &str =
-        "wss://match-0-7.helsing.studio/bevy-ggrs-rapier-example?next=2";
+    pub const MATCHBOX_ADDR: &str = "wss://match-0-7.helsing.studio/bevy-ggrs-avian-example?next=2";
     // Care to run your own matchbox?  Great!
-    // pub const MATCHBOX_ADDR: &str = "ws://localhost:3536/bevy-ggrs-rapier-example?next=2";
-    // TODO: Maybe update this room name (bevy-ggrs-rapier-example) so we don't test with each other :-)
+    // pub const MATCHBOX_ADDR: &str = "ws://localhost:3536/bevy-ggrs-avian-example?next=2";
+    // TODO: Maybe update this room name (bevy-ggrs-avian-example) so we don't test with each other :-)
 }
 
 use bevy::ecs::schedule::ScheduleBuildSettings;
@@ -67,26 +64,6 @@ use crate::prelude::*;
 
 fn main() {
     let mut app = App::new();
-
-    // First thing's first:  we need to gain control of how our entities that
-    // will have physics interactions spawn.  This generates placeholders at
-    // the very start, ensuring the first thing this app does is have a pool
-    // of entities that we can select from later, before any plugins can spawn
-    // ahead of us, or in the middle of us.  These entities will be used to
-    // deterministically assign components we care about to them in the startup
-    // phase, and because they're deterministically assigned, we can serialize
-    // them in Rapier the same every time.
-    //
-    // Yes, this is kind of silly, but a handy workaround for now.
-    // For comparison, in release mode my context hash at init: 18674
-    // Having 100+ entities ready to spawn will cause bevy_rapier to receive
-    // components out-of-order.  This is good for testing desync on frame 1!
-    let _ = app
-        .world_mut()
-        //.spawn_batch((0..101).map(DeterministicSpawnBundle::new))
-        // TODO:  restore big entity spawn for testing, but for now use 10 to debug
-        .spawn_batch((0..11).map(DeterministicSpawnBundle::new))
-        .collect::<Vec<Entity>>();
 
     // Something smaller so we can put these side by side
     let window_info = Window {
@@ -113,8 +90,6 @@ fn main() {
         // Add our own log plugin to help with comparing desync output
         .add_plugins(log_plugin::LogPlugin)
         .add_systems(Startup, startup)
-        //.add_systems(Startup, reset_rapier)
-        .add_systems(Startup, respawn_all)
         .add_systems(Startup, connect)
         .add_systems(Update, toggle_random_input)
         .add_systems(Update, close_on_esc)
@@ -125,11 +100,13 @@ fn main() {
         .set_rollback_schedule_fps(FPS)
         .add_systems(bevy_ggrs::ReadInputs, input)
         // We must add a specific checksum check for everything we want to include in desync detection.
-        // It is probably OK to just check the components, but for demo purposes let's make sure Rapier always agrees.
-        // Store everything that Rapier updates in its Writeback stage
-        // TODO: checksum more
-        .checksum_component::<Position>(|t| fletcher16(&t.x.to_ne_bytes()) as u64)
-        .rollback_resource_with_copy::<Checksum>()
+        // You are welcome to checksum more than this, but I feel just checking the Avian Position is enough.
+        .checksum_component::<Position>(|t| {
+            let mut bytes: Vec<u8> = Vec::new();
+            bytes.extend(t.x.to_ne_bytes());
+            bytes.extend(t.y.to_ne_bytes());
+            fletcher16(&bytes) as u64
+        })
         // https://github.com/Jondolf/avian/issues/478
         //.rollback_component_with_copy::<GlobalTransform>()
         //.rollback_component_with_copy::<Transform>()
@@ -240,7 +217,7 @@ fn main() {
     app.add_systems(
         bevy_ggrs::GgrsSchedule,
         (
-            //            pause_physics_test,
+            pause_physics_test,
             log_end_frame,
             apply_deferred, // Flushing again
         )
@@ -284,6 +261,7 @@ pub fn close_on_esc(
         }
     }
 }
+
 pub fn fletcher16(data: &[u8]) -> u16 {
     let mut sum1: u16 = 0;
     let mut sum2: u16 = 0;

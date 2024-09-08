@@ -1,5 +1,5 @@
 [package]
-name = "bevy_ggrs_rapier_example"
+name = "bevy_ggrs_avian_example"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
